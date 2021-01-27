@@ -143,12 +143,12 @@ def flickr2kml(
     output_kml_path,
     flickr_album,
     template,
-    flickr_api_key,
-    flickr_api_secret,
+    api_key,
+    api_secret,
 ):
 
     token_cache_location = click.get_app_dir("flickr2kml")
-    flickr = create_flickr_api(flickr_api_key, flickr_api_secret, token_cache_location)
+    flickr = create_flickr_api(api_key, api_secret, token_cache_location)
 
     user = Addict(flickr.urls.lookupUser(url=flickr_album.url))
     user_id = user.id
@@ -190,14 +190,14 @@ CONFIG_FILE_HELP = (
 )
 @click.option(
     "--api_key",
-    "flickr_api_key",
+    "api_key",
     help=("Flickr API key"),
     envvar="FLICKR_API_KEY",
     required=True,
 )
 @click.option(
     "--api_secret",
-    "flickr_api_secret",
+    "api_secret",
     help=("Flickr API secret"),
     envvar="FLICKR_API_SECRET",
     required=True,
@@ -218,7 +218,7 @@ CONFIG_FILE_HELP = (
     required=False,
 )
 def main(**kwparams):
-    """Outputs a KML file for georeferenced photos in a Flickr album"""
+    """Generate a KML file for the georeferenced photos in a Flickr album"""
     is_debug = kwparams.pop("is_debug")
     setup_logging(is_debug)
     try:
