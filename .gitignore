@@ -1,0 +1,12 @@
+/test/
+/*.epub
+.vscode
+.python-version
+__pycache__
+.pytest_cache
+/*.egg-info
+/build
+/dist
+*.pyc
+__test/
+*.kml
