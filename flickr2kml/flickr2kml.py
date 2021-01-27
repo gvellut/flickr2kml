@@ -51,11 +51,11 @@ FlickrAlbum = namedtuple("FlickrAlbum", "album_id url")
 def write_kml(flickr_images, template_format, kml_path):
     if template_format == "mymaps":
         template = """<![CDATA[
-<img src="{img_url}" width='500' />{title} {page_url}
+<img src="{img_url}" />{title} {page_url}
 ]]>"""
     else:
         template = """<![CDATA[
-<a href="{page_url}"><img src="{img_url}" width='500' /></a>
+<a href="{page_url}"><img src="{img_url}" /></a>
 <br/><br/>{title}<br/>
 ]]>"""
 
@@ -91,7 +91,9 @@ def create_photopage_url(photo, user_id, album_id):
     return f"https://www.flickr.com/photos/{user_path}/{photo.id}/in/album-{album_id}/"
 
 
-def _get_page_of_photos_in_album(flickr, album_id, user_id, page, acc, output=False):
+def _get_page_of_geo_images_in_album(
+    flickr, album_id, user_id, page, acc, output=False
+):
     album = Addict(
         flickr.photosets.getPhotos(
             photoset_id=album_id,
@@ -102,7 +104,7 @@ def _get_page_of_photos_in_album(flickr, album_id, user_id, page, acc, output=Fa
     ).photoset
 
     if output:
-        logger.info(f"Processing album {album.title} with {album.total} photos...")
+        logger.info(f"Processing album '{album.title}' with {album.total} photos...")
 
     for photo in album.photo:
         # is 0 if not georeferenced
@@ -114,16 +116,16 @@ def _get_page_of_photos_in_album(flickr, album_id, user_id, page, acc, output=Fa
             img_url = photo.url_m
             flickr_image = FlickrImage(title, page_url, img_url, lonlat)
             acc.append(flickr_image)
-        # TODO add logging if not geo
 
-    return (album.page, album.pages)
+    # return album for data about it
+    return album
 
 
-def get_photos_in_album(flickr, album_id, user_id):
+def get_geo_images_in_album(flickr, album_id, user_id):
     flickr_images_geo = []
     page = 1
     while True:
-        _, pages = _get_page_of_photos_in_album(
+        album = _get_page_of_geo_images_in_album(
             flickr,
             album_id,
             user_id,
@@ -132,9 +134,13 @@ def get_photos_in_album(flickr, album_id, user_id):
             output=(page == 1),
         )
 
-        if page >= pages:
+        if page >= album.pages:
             break
         page += 1
+
+    if album and len(flickr_images_geo) < album.total:
+        diff = album.total - len(flickr_images_geo)
+        logger.warning(f"{diff} images in the album are not georeferenced")
 
     return flickr_images_geo
 
@@ -146,23 +152,30 @@ def flickr2kml(
     api_key,
     api_secret,
 ):
-
-    token_cache_location = click.get_app_dir("flickr2kml")
+    token_cache_location = click.get_app_dir(DEFAULT_APP_DIR)
     flickr = create_flickr_api(api_key, api_secret, token_cache_location)
 
     user = Addict(flickr.urls.lookupUser(url=flickr_album.url))
     user_id = user.id
 
-    flickr_images_geo = get_photos_in_album(flickr, flickr_album.album_id, user_id)
+    flickr_images_geo = get_geo_images_in_album(flickr, flickr_album.album_id, user_id)
 
     if len(flickr_images_geo) == 0:
-        logger.warning("No georeferenced image found in album!")
+        logger.warning(
+            "No georeferenced image found in album! No KML will be generated."
+        )
+        return
+
     write_kml(flickr_images_geo, template, output_kml_path)
 
 
+DEFAULT_CONFIG_FILENAME = "flickr_api_credentials.txt"
+DEFAULT_APP_DIR = "flickr2kml"
+DEFAULT_CONFIG_PATH = f"{click.get_app_dir(DEFAULT_APP_DIR)}/{DEFAULT_CONFIG_FILENAME}"
+
 CONFIG_FILE_HELP = (
     f"Path to optional config file for the Flickr API credentials [default :"
-    f" {click.get_app_dir('flickr2kml')}/flickr_api_credentials.txt ]"
+    f" {DEFAULT_CONFIG_PATH}]"
 )
 
 
@@ -206,8 +219,8 @@ CONFIG_FILE_HELP = (
     "--config",
     "config_path",
     help=CONFIG_FILE_HELP,
-    cmd_name="flickr2kml",
-    config_file_name="flickr_api_credentials.txt",
+    cmd_name=DEFAULT_APP_DIR,
+    config_file_name=DEFAULT_CONFIG_FILENAME,
 )
 @click.option(
     "-d",
