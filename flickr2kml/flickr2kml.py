@@ -43,12 +43,12 @@ def setup_logging(is_debug=False):
     logger.addHandler(handler)
 
 
-FlickrImage = namedtuple("FlickrImage", "title page_url img_url lonlat")
+FlickrImage = namedtuple("FlickrImage", "title page_url img_url icon_url lonlat")
 
 FlickrAlbum = namedtuple("FlickrAlbum", "album_id url")
 
 
-def write_kml(flickr_images, template_format, kml_path):
+def write_kml(flickr_images, template_format, is_pushpin, kml_path):
     if template_format == "mymaps":
         template = """<![CDATA[
 <img src="{img_url}" />{title} {page_url}
@@ -61,15 +61,27 @@ def write_kml(flickr_images, template_format, kml_path):
 
     # TODO placemark style
     kml = simplekml.Kml()
-    sharedstyle = simplekml.Style()
-    sharedstyle.balloonstyle.text = "$[description]"
+
+    sharedstyle = None
+    if is_pushpin:
+        sharedstyle = simplekml.Style()
+        _set_balloonstyle(sharedstyle)
+
     for flickr_image in flickr_images:
         dvals = dict(zip(flickr_image._fields, flickr_image))
         desc = template.format(**dvals)
         pnt = kml.newpoint(description=desc, coords=[flickr_image.lonlat])
-        pnt.style = sharedstyle
+        if is_pushpin:
+            pnt.style = sharedstyle
+        else:
+            _set_balloonstyle(pnt.style)
+            pnt.style.iconstyle.icon.href = flickr_image.icon_url
 
     kml.save(kml_path)
+
+
+def _set_balloonstyle(style):
+    style.balloonstyle.text = "$[description]"
 
 
 def parse_album_url(ctx, param, value):
@@ -98,7 +110,7 @@ def _get_page_of_geo_images_in_album(
         flickr.photosets.getPhotos(
             photoset_id=album_id,
             user_id=user_id,
-            extras="path_alias,url_m,geo",
+            extras="path_alias,url_m,url_sq,geo",
             page=page,
         )
     ).photoset
@@ -114,7 +126,8 @@ def _get_page_of_geo_images_in_album(
             title = photo.title
             lonlat = [photo.longitude, photo.latitude]
             img_url = photo.url_m
-            flickr_image = FlickrImage(title, page_url, img_url, lonlat)
+            icon_url = photo.url_sq
+            flickr_image = FlickrImage(title, page_url, img_url, icon_url, lonlat)
             acc.append(flickr_image)
 
     # return album for data about it
@@ -146,11 +159,7 @@ def get_geo_images_in_album(flickr, album_id, user_id):
 
 
 def flickr2kml(
-    output_kml_path,
-    flickr_album,
-    template,
-    api_key,
-    api_secret,
+    output_kml_path, flickr_album, template, api_key, api_secret, is_pushpin
 ):
     token_cache_location = click.get_app_dir(DEFAULT_APP_DIR)
     flickr = create_flickr_api(api_key, api_secret, token_cache_location)
@@ -166,7 +175,7 @@ def flickr2kml(
         )
         return
 
-    write_kml(flickr_images_geo, template, output_kml_path)
+    write_kml(flickr_images_geo, template, is_pushpin, output_kml_path)
 
 
 DEFAULT_CONFIG_FILENAME = "flickr_api_credentials.txt"
@@ -214,6 +223,14 @@ CONFIG_FILE_HELP = (
     help=("Flickr API secret"),
     envvar="FLICKR_API_SECRET",
     required=True,
+)
+@click.option(
+    "-p",
+    "--pushpin",
+    "is_pushpin",
+    is_flag=True,
+    help=("Flag to make each placemark a simple pushpin instead of a small image"),
+    required=False,
 )
 @click_config_file.configuration_option(
     "--config",

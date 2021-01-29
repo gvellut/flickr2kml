@@ -31,10 +31,13 @@ Options:
 
   --api_key TEXT                  Flickr API key  [required]
   --api_secret TEXT               Flickr API secret  [required]
+  -p, --pushpin                   Flag to make each placemark a simple pushpin
+                                  instead of a small image
+
   --config FILE                   Path to optional config file for the Flickr
                                   API credentials [default :
                                   /Users/guilhem/Library/Application Support/f
-                                  lickr2kml/flickr_api_credentials.txt ]
+                                  lickr2kml/flickr_api_credentials.txt]
 
   -d, --debug                     Flag to activate debug mode
   --help                          Show this message and exit.
