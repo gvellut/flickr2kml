@@ -109,7 +109,6 @@ def _get_page_of_geo_images_in_album(
     album = Addict(
         flickr.photosets.getPhotos(
             photoset_id=album_id,
-            user_id=user_id,
             extras="path_alias,url_m,url_sq,geo",
             page=page,
         )
@@ -162,9 +161,9 @@ def flickr2kml(
     output_kml_path, flickr_album, template, api_key, api_secret, is_pushpin
 ):
     token_cache_location = click.get_app_dir(DEFAULT_APP_DIR)
-    flickr = create_flickr_api(api_key, api_secret, token_cache_location)
+    flickr = create_flickr_api(api_key, api_secret, "read", token_cache_location)
 
-    user = Addict(flickr.urls.lookupUser(url=flickr_album.url))
+    user = Addict(flickr.urls.lookupUser(url=flickr_album.url)).user
     user_id = user.id
 
     flickr_images_geo = get_geo_images_in_album(flickr, flickr_album.album_id, user_id)
