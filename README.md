@@ -59,7 +59,7 @@ api_secret="<Flickr API Secret>"
 - The default location depends on the OS (the one shown above is for my macOS machine) but can be shown with the `--help` switch. That location can be overriden with the `--config` option.
 - If there is no config file, the key and secret can be passed as options on the command line or as environment variables (`FLICKR_API_KEY` and `FLICKR_API_SECRET`).
 
-### Log in to Flickr and authorizin the application
+### Log in to Flickr and authorize the application
 
 The first time the tool is run on the command-line, a token for accessing the API must be generated. It is pretty straightforward:
 - A web page in the default browser will open. 
