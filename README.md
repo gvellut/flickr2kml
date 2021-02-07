@@ -47,7 +47,7 @@ Some notes:
 - The URL of the Flickr album must be something like `https://www.flickr.com/photos/o_0/albums/72157716704507802`
 - There are 2 different formats for the description fields in the KML placemarks. I personnally generate KML for use either in Google Earth (`gearth` format) or Google My Maps (`mymaps` format). They don't present the content of the fields the same way (nor support the same features). The default is the Google Earth format.
 
-## API permision
+## API permission
 
 - The API keys and secrets can be obtained by registering a non-commercial application with Flickr at https://www.flickr.com/services/api/misc.api_keys.html Since the API has limits on how many calls can be made per hour, I cannot share my own key.
 - A config file is optional and, if present, can contain values for the `api_key` and `api_secret` arguments. It should be a text file with the content like this:
