@@ -43,21 +43,24 @@ def setup_logging(is_debug=False):
     logger.addHandler(handler)
 
 
-FlickrImage = namedtuple("FlickrImage", "title page_url img_url icon_url lonlat")
+ORIENTATION_HORIZONTAL = "horizontal"
+ORIENTATION_VERTICAL = "vertical"
+
+FlickrImage = namedtuple(
+    "FlickrImage", "title page_url img_url icon_url lonlat orientation"
+)
 
 FlickrAlbum = namedtuple("FlickrAlbum", "album_id url")
 
 
-def write_kml(flickr_images, template_format, is_pushpin, kml_path):
+def write_kml(flickr_images, template_format, is_pushpin, kml_thumbnail_size, kml_path):
     if template_format == "mymaps":
         template = """<![CDATA[
-<img src="{img_url}" />{title} {page_url}
-]]>"""
+<img src="{img_url}" />{title} {page_url}]]>"""
     else:
         template = """<![CDATA[
-<a href="{page_url}"><img src="{img_url}" /></a>
-<br/><br/>{title}<br/>
-]]>"""
+<a href="{page_url}"><img src="{img_url}" {max_size} /></a>
+<br/><br/>{title}<br/>]]>"""
 
     # TODO placemark style
     kml = simplekml.Kml()
@@ -69,6 +72,10 @@ def write_kml(flickr_images, template_format, is_pushpin, kml_path):
 
     for flickr_image in flickr_images:
         dvals = dict(zip(flickr_image._fields, flickr_image))
+        if flickr_image.orientation == ORIENTATION_HORIZONTAL:
+            dvals["max_size"] = f'width="{kml_thumbnail_size}"'
+        else:
+            dvals["max_size"] = f'height="{kml_thumbnail_size}"'
         desc = template.format(**dvals)
         pnt = kml.newpoint(description=desc, coords=[flickr_image.lonlat])
         if is_pushpin:
@@ -126,7 +133,13 @@ def _get_page_of_geo_images_in_album(
             lonlat = [photo.longitude, photo.latitude]
             img_url = photo.url_m
             icon_url = photo.url_sq
-            flickr_image = FlickrImage(title, page_url, img_url, icon_url, lonlat)
+            if photo.height_m > photo.width_m:
+                orientation = ORIENTATION_VERTICAL
+            else:
+                orientation = ORIENTATION_HORIZONTAL
+            flickr_image = FlickrImage(
+                title, page_url, img_url, icon_url, lonlat, orientation
+            )
             acc.append(flickr_image)
 
     # return album for data about it
@@ -158,7 +171,13 @@ def get_geo_images_in_album(flickr, album_id, user_id):
 
 
 def flickr2kml(
-    output_kml_path, flickr_album, template, api_key, api_secret, is_pushpin
+    output_kml_path,
+    flickr_album,
+    template,
+    api_key,
+    api_secret,
+    is_pushpin,
+    kml_thumbnail_size,
 ):
     token_cache_location = click.get_app_dir(DEFAULT_APP_DIR)
     flickr = create_flickr_api(api_key, api_secret, "read", token_cache_location)
@@ -174,7 +193,9 @@ def flickr2kml(
         )
         return
 
-    write_kml(flickr_images_geo, template, is_pushpin, output_kml_path)
+    write_kml(
+        flickr_images_geo, template, is_pushpin, kml_thumbnail_size, output_kml_path
+    )
 
 
 DEFAULT_CONFIG_FILENAME = "flickr_api_credentials.txt"
@@ -229,6 +250,14 @@ CONFIG_FILE_HELP = (
     "is_pushpin",
     is_flag=True,
     help=("Flag to make each placemark a simple pushpin instead of a small image"),
+    required=False,
+)
+@click.option(
+    "--kml-thumbnail-size",
+    "kml_thumbnail_size",
+    default=500,
+    type=click.INT,
+    help=("Pixel size of the image popup in the KML"),
     required=False,
 )
 @click_config_file.configuration_option(
