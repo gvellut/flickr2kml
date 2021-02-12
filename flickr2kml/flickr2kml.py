@@ -180,7 +180,9 @@ def flickr2kml(
     kml_thumbnail_size,
 ):
     token_cache_location = click.get_app_dir(DEFAULT_APP_DIR)
-    flickr = create_flickr_api(api_key, api_secret, "read", token_cache_location)
+    # write because single token for a user / API key => so maximum rights
+    # or flickrapi will cause login each time
+    flickr = create_flickr_api(api_key, api_secret, "write", token_cache_location)
 
     user = Addict(flickr.urls.lookupUser(url=flickr_album.url)).user
     user_id = user.id
