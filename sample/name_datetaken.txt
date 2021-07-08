@@ -1,0 +1,1 @@
+{{datetaken_p.strftime("%Hh%M %d-%m-%y") }} {{HELLO}}

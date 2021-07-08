@@ -42,6 +42,9 @@ setup_args = dict(
     ],
     keywords="flickr kml geo",
     packages=find_packages(exclude=["docs", "tests"]),
+    package_data={
+        "flickr2kml": ["template_*.html"],
+    },
     install_requires=requirements,
     extras_require={"dev": requirements_dev},
     project_urls={

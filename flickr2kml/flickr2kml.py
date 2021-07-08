@@ -1,4 +1,5 @@
 from collections import namedtuple
+from datetime import timezone
 import logging
 import re
 import sys
@@ -7,11 +8,22 @@ from addict import Dict as Addict
 import click
 import click_config_file
 import colorama
+import dateutil.parser
+import importlib_resources
+from jinja2 import Template
 import simplekml
 
 from .flickr_api_auth import create_flickr_api
 
 logger = logging.getLogger(__package__)
+
+
+class InvalidTemplateArgumentError(Exception):
+    pass
+
+
+class TemplateError(Exception):
+    pass
 
 
 # specify colors for different logging levels
@@ -46,23 +58,118 @@ def setup_logging(is_debug=False):
 ORIENTATION_HORIZONTAL = "horizontal"
 ORIENTATION_VERTICAL = "vertical"
 
-FlickrImage = namedtuple(
-    "FlickrImage", "title page_url img_url icon_url lonlat orientation"
-)
 
 FlickrAlbum = namedtuple("FlickrAlbum", "album_id url")
 
 
-def write_kml(flickr_images, template_format, is_pushpin, kml_thumbnail_size, kml_path):
-    if template_format == "mymaps":
-        template = """<![CDATA[
-<img src="{img_url}" />{title} {page_url}]]>"""
-    else:
-        template = """<![CDATA[
-<a href="{page_url}"><img src="{img_url}" {max_size} /></a>
-<br/><br/>{title}<br/>]]>"""
+def _parse_template_args(template_args):
+    errors = []
+    parsed = {}
+    for arg in template_args:
+        key_val = arg.split("=", 1)
+        if len(key_val) != 2:
+            errors.append(f"'{arg}'")
+            continue
+        key, val = key_val
+        key = key.strip()
+        logger.debug(f"Arg : '{key}' => '{val}'")
+        parsed[key] = val
 
-    # TODO placemark style
+    if errors:
+        errors = ",".join(errors)
+        raise InvalidTemplateArgumentError(
+            f"There were invalid template arguments: {errors}"
+        )
+
+    return parsed
+
+
+def _read_template(template_path):
+    try:
+        with open(template_path, encoding="utf-8") as fp:
+            template_text = fp.read()
+    except Exception:
+        raise TemplateError(f"Template path '{template_path}' could not be opened!")
+
+    return template_text
+
+
+def _render_image(
+    kml,
+    flickr_image,
+    j_template,
+    j_name_template,
+    template_args,
+    is_pushpin,
+    sharedstyle,
+):
+    # flickr_image already a dict. No copy: won't need it after this
+    dvals = flickr_image
+    dvals.update(template_args)
+
+    try:
+        desc = j_template.render(**dvals)
+    except Exception:
+        logger.debug(dvals)
+        raise TemplateError("Unable to render description template")
+    desc = f"<![CDATA[{desc}]]>"
+
+    if j_name_template:
+        try:
+            name = j_name_template.render(**dvals)
+        except Exception:
+            logger.debug(dvals)
+            raise TemplateError("Unable to render name template")
+        # name is not html so no cdata
+    else:
+        name = None
+
+    pnt = kml.newpoint(name=name, description=desc, coords=[flickr_image.lonlat])
+
+    if is_pushpin:
+        pnt.style = sharedstyle
+    else:
+        _set_balloonstyle(pnt.style)
+        pnt.style.iconstyle.icon.href = flickr_image.icon_url
+
+
+def write_kml(
+    flickr_images, template, name_template, is_pushpin, template_args, kml_path
+):
+    logger.debug(f"template={template} name_template={name_template}")
+
+    if template == "mymaps":
+        template_text = importlib_resources.read_text(
+            __package__, "template_mymaps.html"
+        )
+    elif template == "gearth":
+        template_text = importlib_resources.read_text(
+            __package__, "template_gearth.html"
+        )
+    else:
+        # template is considered to be a path
+        template_text = _read_template(template, autoescape=True)
+
+    try:
+        j_template = Template(template_text)
+    except Exception:
+        raise TemplateError("Unable to parse description template")
+
+    if name_template:
+        name_template_text = _read_template(name_template)
+        try:
+            # not HTML so no autoescape
+            j_name_template = Template(name_template_text, autoescape=False)
+        except Exception:
+            raise TemplateError("Unable to parse name template")
+    else:
+        j_name_template = None
+
+    template_args = _parse_template_args(template_args)
+    # Default size : used in gearth and mymaps templates
+    if "SIZE" not in template_args:
+        template_args["SIZE"] = "500"
+
     kml = simplekml.Kml()
 
     sharedstyle = None
@@ -71,18 +178,15 @@ def write_kml(flickr_images, template_format, is_pushpin, kml_thumbnail_size, km
         _set_balloonstyle(sharedstyle)
 
     for flickr_image in flickr_images:
-        dvals = dict(zip(flickr_image._fields, flickr_image))
-        if flickr_image.orientation == ORIENTATION_HORIZONTAL:
-            dvals["max_size"] = f'width="{kml_thumbnail_size}"'
-        else:
-            dvals["max_size"] = f'height="{kml_thumbnail_size}"'
-        desc = template.format(**dvals)
-        pnt = kml.newpoint(description=desc, coords=[flickr_image.lonlat])
-        if is_pushpin:
-            pnt.style = sharedstyle
-        else:
-            _set_balloonstyle(pnt.style)
-            pnt.style.iconstyle.icon.href = flickr_image.icon_url
+        _render_image(
+            kml,
+            flickr_image,
+            j_template,
+            j_name_template,
+            template_args,
+            is_pushpin,
+            sharedstyle,
+        )
 
     kml.save(kml_path)
 
@@ -116,7 +220,9 @@ def _get_page_of_geo_images_in_album(
     album = Addict(
         flickr.photosets.getPhotos(
             photoset_id=album_id,
-            extras="path_alias,url_m,url_sq,geo",
+            extras="license, date_upload, date_taken, owner_name, icon_server, "
+            "original_format, last_update, geo, tags, machine_tags, o_dims, views, "
+            "media, path_alias, url_sq, url_t, url_s, url_m, url_o",
             page=page,
         )
     ).photoset
@@ -127,19 +233,23 @@ def _get_page_of_geo_images_in_album(
     for photo in album.photo:
         # is 0 if not georeferenced
         if photo.latitude:
-            # geo
-            page_url = create_photopage_url(photo, user_id, album_id)
-            title = photo.title
-            lonlat = [photo.longitude, photo.latitude]
-            img_url = photo.url_m
-            icon_url = photo.url_sq
+            flickr_image = Addict()
+            flickr_image.page_url = create_photopage_url(photo, user_id, album_id)
+            flickr_image.lonlat = [photo.longitude, photo.latitude]
+            flickr_image.img_url = photo.url_m
+            flickr_image.icon_url = photo.url_sq
             if photo.height_m > photo.width_m:
-                orientation = ORIENTATION_VERTICAL
+                flickr_image.orientation = ORIENTATION_VERTICAL
             else:
-                orientation = ORIENTATION_HORIZONTAL
-            flickr_image = FlickrImage(
-                title, page_url, img_url, icon_url, lonlat, orientation
+                flickr_image.orientation = ORIENTATION_HORIZONTAL
+            flickr_image.update(photo)
+
+            # parse the date taken so can be formatted in template
+            flickr_image.datetaken_p = dateutil.parser.isoparse(flickr_image.datetaken)
+            flickr_image.datetaken_p = flickr_image.datetaken_p.replace(
+                tzinfo=timezone.utc
             )
+
             acc.append(flickr_image)
 
     # return album for data about it
@@ -174,10 +284,11 @@ def flickr2kml(
     output_kml_path,
     flickr_album,
     template,
+    name_template,
     api_key,
     api_secret,
     is_pushpin,
-    kml_thumbnail_size,
+    template_args,
 ):
     token_cache_location = click.get_app_dir(DEFAULT_APP_DIR)
     # write because single token for a user / API key => so maximum rights
@@ -196,7 +307,12 @@ def flickr2kml(
         return
 
     write_kml(
-        flickr_images_geo, template, is_pushpin, kml_thumbnail_size, output_kml_path
+        flickr_images_geo,
+        template,
+        name_template,
+        is_pushpin,
+        template_args,
+        output_kml_path,
     )
 
 
@@ -228,9 +344,21 @@ CONFIG_FILE_HELP = (
     "-t",
     "--template",
     "template",
-    help=("Choice of placemark description format [default: gearth]"),
+    help=(
+        "Choice of format for the placemark description, either predefined (gearth "
+        "[default], mymaps) or path to custom template"
+    ),
     default="gearth",
-    type=click.Choice(["gearth", "mymaps"]),
+)
+@click.option(
+    "-n",
+    "--name_template",
+    "name_template",
+    help=(
+        "Choice of format for the placemark name, as a path to a custom template "
+        "[default: empty]"
+    ),
+    default="",
 )
 @click.option(
     "--api_key",
@@ -255,11 +383,11 @@ CONFIG_FILE_HELP = (
     required=False,
 )
 @click.option(
-    "--kml-thumbnail-size",
-    "kml_thumbnail_size",
-    default=500,
-    type=click.INT,
-    help=("Pixel size of the image popup in the KML"),
+    "-a",
+    "--template_arg",
+    "template_args",
+    multiple=True,
+    help=("Variable to pass to the template (multiple possible)"),
     required=False,
 )
 @click_config_file.configuration_option(
