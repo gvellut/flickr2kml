@@ -1,5 +1,4 @@
 from collections import namedtuple
-from datetime import timezone
 import logging
 import re
 import sys
@@ -55,8 +54,8 @@ def setup_logging(is_debug=False):
     logger.addHandler(handler)
 
 
-ORIENTATION_HORIZONTAL = "horizontal"
-ORIENTATION_VERTICAL = "vertical"
+ORIENTATION_HORIZONTAL = "landscape"
+ORIENTATION_VERTICAL = "portrait"
 
 
 FlickrAlbum = namedtuple("FlickrAlbum", "album_id url")
@@ -148,10 +147,10 @@ def write_kml(
         )
     else:
         # template is considered to be a path
-        template_text = _read_template(template, autoescape=True)
+        template_text = _read_template(template)
 
     try:
-        j_template = Template(template_text)
+        j_template = Template(template_text, autoescape=True)
     except Exception:
         raise TemplateError("Unable to parse description template")
 
@@ -217,12 +216,13 @@ def create_photopage_url(photo, user_id, album_id):
 def _get_page_of_geo_images_in_album(
     flickr, album_id, user_id, page, acc, output=False
 ):
+    # description in extras: Not documented in the API doc but works
     album = Addict(
         flickr.photosets.getPhotos(
             photoset_id=album_id,
-            extras="license, date_upload, date_taken, owner_name, icon_server, "
-            "original_format, last_update, geo, tags, machine_tags, o_dims, views, "
-            "media, path_alias, url_sq, url_t, url_s, url_m, url_o",
+            extras="license, date_upload, date_taken, owner_name, "
+            "original_format, geo, tags, views, path_alias, url_sq, url_t"
+            "url_s, url_m, url_o, description",
             page=page,
         )
     ).photoset
@@ -233,24 +233,22 @@ def _get_page_of_geo_images_in_album(
     for photo in album.photo:
         # is 0 if not georeferenced
         if photo.latitude:
-            flickr_image = Addict()
-            flickr_image.page_url = create_photopage_url(photo, user_id, album_id)
-            flickr_image.lonlat = [photo.longitude, photo.latitude]
-            flickr_image.img_url = photo.url_m
-            flickr_image.icon_url = photo.url_sq
+            # add computed fields
+            photo.page_url = create_photopage_url(photo, user_id, album_id)
+            photo.lonlat = [photo.longitude, photo.latitude]
+            photo.img_url = photo.url_m
+            photo.icon_url = photo.url_sq
             if photo.height_m > photo.width_m:
-                flickr_image.orientation = ORIENTATION_VERTICAL
+                photo.orientation = ORIENTATION_VERTICAL
             else:
-                flickr_image.orientation = ORIENTATION_HORIZONTAL
-            flickr_image.update(photo)
+                photo.orientation = ORIENTATION_HORIZONTAL
+            # description already defined on photo object but make it simpler
+            photo.description = photo.description._content.strip()
 
             # parse the date taken so can be formatted in template
-            flickr_image.datetaken_p = dateutil.parser.isoparse(flickr_image.datetaken)
-            flickr_image.datetaken_p = flickr_image.datetaken_p.replace(
-                tzinfo=timezone.utc
-            )
+            photo.datetaken_p = dateutil.parser.isoparse(photo.datetaken)
 
-            acc.append(flickr_image)
+            acc.append(photo)
 
     # return album for data about it
     return album
@@ -346,7 +344,7 @@ CONFIG_FILE_HELP = (
     "template",
     help=(
         "Choice of format for the placemark description, either predefined (gearth "
-        "[default], mymaps) or path to custom template"
+        "[default], mymaps) or as a path to a custom template"
     ),
     default="gearth",
 )

@@ -25,27 +25,114 @@ Usage: flickr2kml [OPTIONS] OUTPUT_KML
   Generate a KML file for the georeferenced photos in a Flickr album
 
 Options:
-  -f, --flickr_album TEXT         URL of Flickr album  [required]
-  -t, --template [gearth|mymaps]  Choice of placemark description format
-                                  [default: gearth]
+  -f, --flickr_album TEXT   URL of Flickr album  [required]
+  -t, --template TEXT       Choice of format for the placemark description,
+                            either predefined (gearth [default], mymaps) or as
+                            a path to a custom template
 
-  --api_key TEXT                  Flickr API key  [required]
-  --api_secret TEXT               Flickr API secret  [required]
-  -p, --pushpin                   Flag to make each placemark a simple pushpin
-                                  instead of a small image
+  -n, --name_template TEXT  Choice of format for the placemark name, as a path
+                            to a custom template [default: empty]
 
-  --config FILE                   Path to optional config file for the Flickr
-                                  API credentials [default :
-                                  /Users/guilhem/Library/Application Support/f
-                                  lickr2kml/flickr_api_credentials.txt]
+  --api_key TEXT            Flickr API key  [required]
+  --api_secret TEXT         Flickr API secret  [required]
+  -p, --pushpin             Flag to make each placemark a simple pushpin
+                            instead of a small image
 
-  -d, --debug                     Flag to activate debug mode
-  --help                          Show this message and exit.
+  -a, --template_arg TEXT   Variable to pass to the template (multiple
+                            possible)
+
+  --config FILE             Path to optional config file for the Flickr API
+                            credentials [default :
+                            /Users/guilhem/Library/Application
+                            Support/flickr2kml/flickr_api_credentials.txt]
+
+  -d, --debug               Flag to activate debug mode
+  --help                    Show this message and exit.
   ```
 
-Some notes:
-- The URL of the Flickr album must be something like `https://www.flickr.com/photos/o_0/albums/72157716704507802`
-- There are 2 different formats for the description fields in the KML placemarks. I personnally generate KML for use either in Google Earth (`gearth` format) or Google My Maps (`mymaps` format). They don't present the content of the fields the same way (nor support the same features). The default is the Google Earth format.
+The URL of the Flickr album must be something like `https://www.flickr.com/photos/o_0/albums/72157716704507802`
+
+## Name and description
+
+There are 2 different formats for the description fields in the KML placemarks. I personnally generate KML for use either in Google Earth (`gearth` format) or Google My Maps (`mymaps` format). They don't present the content of the fields the same way (nor support the same features). The default is the Google Earth format.
+
+By default, the KML names are left empty.
+
+### Template
+
+It is also possible to configure custom name and description formats by passing a path to a [Jinja2 template file](https://jinja.palletsprojects.com/en/3.0.x/templates/) with the `-t / --template` option (for the description) and the `-n / --name_template` option (for the name).
+
+#### Description
+
+The description template must return a HTML fragment (a simple text wthout any markup will do though). 
+
+The 2 predefined templates can be used as a starting point:
+
+- [`gearth`](https://github.com/gvellut/flickr2kml/blob/master/flickr2kml/template_gearth.html)
+- [`mymaps`](https://github.com/gvellut/flickr2kml/blob/master/flickr2kml/template_mymaps.html)
+
+#### Name
+
+The name template must return a text (HTML is not supported).
+
+A sample for the name is available here:
+
+- [Sample](https://github.com/gvellut/flickr2kml/blob/master/sample/name_datetaken.txt)
+
+It simply outputs a formatted `date taken`. The format specificaton is the one used by Python [from the datetime package](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes).
+
+#### Template arguments
+
+Besides fields obtained from the Flickr API (which change for each photo; See secton below), it is also possible to pass arguments to the template, which will stay the same for every photo. The `-a / --template_arg` option can be used multiple times for multiple arguments.
+
+Example: 
+
+```
+-a MYARG=value -a SIZE=350
+```
+
+The `SIZE` argument, if not redefined on the command-line, is set to `500` i.e. equivalent to `-a SIZE=500`. The reason is that it is used by the predefined templates: There would be an error if not present. Custom templates are free not to use it though.
+
+#### Fields
+
+Here are the main fields obtained from the Flickr API:
+
+- `id`
+- `secret`
+- `originalsecret`
+- `originalformat`
+- `title`
+- `description`
+- `datetaken`: Date taken in ISO format (string) as returned by the API
+- `ownername`
+- `pathalias`
+- `views`: Number of views
+- `tags`
+- `latitude`
+- `longitude`
+- `url_sq`
+- `height_sq`
+- `width_sq`
+- `url_t`
+- `height_t`
+- `width_t`
+- `url_s`
+- `height_s`
+- `width_s`
+- `url_m`
+- `height_m`
+- `width_m`
+- `url_o`: URL of the original photo
+- `height_o`
+- `width_o`
+
+Additional fields (computed by flickr2kml) are:
+- `page_url`: link to the photo page on the Flickr website
+- `lonlat`: Python tuple
+- `img_url`: same as `url_m`
+- `icon_url`: same as `url_sq`
+- `orientation`: either `landscape` or `portrait`
+- `datetaken_p`: Python date object obtained by parsing the datetaken from the Flickr API. There is no timezone.
 
 ## API permission
 
@@ -73,10 +160,18 @@ As long as the token is cached, there will be no need no login again for subsequ
 
 The tool will run with the permission of the user that logged in. In order to switch user, the `oauth-tokens.sqlite` will need to be deleted.
 
-# Example
+# Examples
+
+## Simple
 
 ```
 flickr2kml -f https://www.flickr.com/photos/o_0/albums/72157716046011583 thiou2020.kml
 ```
 
 If the API key and secret come from a config file, there is no need to pass them as argument.
+
+## With templates
+
+```
+flickr2kml -f https://www.flickr.com/photos/o_0/albums/72157716046011583 thiou2020.kml
+```
