@@ -359,6 +359,29 @@ CONFIG_FILE_HELP = (
     default="",
 )
 @click.option(
+    "-a",
+    "--template_arg",
+    "template_args",
+    multiple=True,
+    help=("Variable to pass to the template (multiple possible)"),
+    required=False,
+)
+@click.option(
+    "-p",
+    "--pushpin",
+    "is_pushpin",
+    is_flag=True,
+    help=("Flag to make each placemark a simple pushpin instead of a small image"),
+    required=False,
+)
+@click_config_file.configuration_option(
+    "--config",
+    "config_path",
+    help=CONFIG_FILE_HELP,
+    cmd_name=DEFAULT_APP_DIR,
+    config_file_name=DEFAULT_CONFIG_FILENAME,
+)
+@click.option(
     "--api_key",
     "api_key",
     help=("Flickr API key"),
@@ -371,29 +394,6 @@ CONFIG_FILE_HELP = (
     help=("Flickr API secret"),
     envvar="FLICKR_API_SECRET",
     required=True,
-)
-@click.option(
-    "-p",
-    "--pushpin",
-    "is_pushpin",
-    is_flag=True,
-    help=("Flag to make each placemark a simple pushpin instead of a small image"),
-    required=False,
-)
-@click.option(
-    "-a",
-    "--template_arg",
-    "template_args",
-    multiple=True,
-    help=("Variable to pass to the template (multiple possible)"),
-    required=False,
-)
-@click_config_file.configuration_option(
-    "--config",
-    "config_path",
-    help=CONFIG_FILE_HELP,
-    cmd_name=DEFAULT_APP_DIR,
-    config_file_name=DEFAULT_CONFIG_FILENAME,
 )
 @click.option(
     "-d",

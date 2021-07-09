@@ -33,19 +33,19 @@ Options:
   -n, --name_template TEXT  Choice of format for the placemark name, as a path
                             to a custom template [default: empty]
 
-  --api_key TEXT            Flickr API key  [required]
-  --api_secret TEXT         Flickr API secret  [required]
-  -p, --pushpin             Flag to make each placemark a simple pushpin
-                            instead of a small image
-
   -a, --template_arg TEXT   Variable to pass to the template (multiple
                             possible)
+
+  -p, --pushpin             Flag to make each placemark a simple pushpin
+                            instead of a small image
 
   --config FILE             Path to optional config file for the Flickr API
                             credentials [default :
                             /Users/guilhem/Library/Application
                             Support/flickr2kml/flickr_api_credentials.txt]
 
+  --api_key TEXT            Flickr API key  [required]
+  --api_secret TEXT         Flickr API secret  [required]
   -d, --debug               Flag to activate debug mode
   --help                    Show this message and exit.
   ```
@@ -79,11 +79,11 @@ A sample for the name is available here:
 
 - [Sample](https://github.com/gvellut/flickr2kml/blob/master/sample/name_datetaken.txt)
 
-It simply outputs a formatted `date taken`. The format specificaton is the one used by Python [from the datetime package](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes).
+It simply outputs a formatted `date taken`. The date format specification is the one used by Python [from the datetime package](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes).
 
 #### Template arguments
 
-Besides fields obtained from the Flickr API (which change for each photo; See secton below), it is also possible to pass arguments to the template, which will stay the same for every photo. The `-a / --template_arg` option can be used multiple times for multiple arguments.
+Besides fields obtained from the Flickr API (which change for each photo; See section below), it is also possible to pass arguments to the template, which will stay the same for every photo. The `-a / --template_arg` option can be used multiple times for multiple arguments.
 
 Example: 
 
@@ -91,11 +91,11 @@ Example:
 -a MYARG=value -a SIZE=350
 ```
 
-The `SIZE` argument, if not redefined on the command-line, is set to `500` i.e. equivalent to `-a SIZE=500`. The reason is that it is used by the predefined templates: There would be an error if not present. Custom templates are free not to use it though.
+The `SIZE` argument, if not redefined on the command-line, is set to `500` by default i.e. equivalent to `-a SIZE=500`. The reason is that it is used by the predefined templates: There would be an error if not present. Custom templates are free not to use it though.
 
 #### Fields
 
-Here are the main fields obtained from the Flickr API:
+Here are the main fields obtained from the Flickr API and available to the templates:
 
 - `id`
 - `secret`
@@ -126,13 +126,13 @@ Here are the main fields obtained from the Flickr API:
 - `height_o`
 - `width_o`
 
-Additional fields (computed by flickr2kml) are:
+Additional fields (computed by `flickr2kml`) are:
 - `page_url`: link to the photo page on the Flickr website
 - `lonlat`: Python tuple
 - `img_url`: same as `url_m`
 - `icon_url`: same as `url_sq`
 - `orientation`: either `landscape` or `portrait`
-- `datetaken_p`: Python date object obtained by parsing the datetaken from the Flickr API. There is no timezone.
+- `datetaken_p`: Python datetime object obtained by parsing the `datetaken`field from the Flickr API. There is no timezone.
 
 ## API permission
 
@@ -173,5 +173,5 @@ If the API key and secret come from a config file, there is no need to pass them
 ## With templates
 
 ```
-flickr2kml -f https://www.flickr.com/photos/o_0/albums/72157716046011583 thiou2020.kml
+flickr2kml thiou2020.kml -f https://www.flickr.com/photos/o_0/albums/72157716046011583 -n mynametemplate.txt -t mydesctemplate.html -a SIZE=350 
 ```
