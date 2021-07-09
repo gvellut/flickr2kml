@@ -98,6 +98,7 @@ The `SIZE` argument, if not redefined on the command-line, is set to `500` by de
 Here are the main fields obtained from the Flickr API and available to the templates:
 
 - `id`
+- `server`
 - `secret`
 - `originalsecret`
 - `originalformat`
@@ -125,6 +126,18 @@ Here are the main fields obtained from the Flickr API and available to the templ
 - `url_o`: URL of the original photo
 - `height_o`
 - `width_o`
+- `url_l`
+- `height_l`
+- `width_l`
+- `url_h`: URL of 1600px photo size. It is possibly not present depending on the "Largest shared image size" setting in the account (same for the image sizes below).
+- `height_h`
+- `width_h`
+- `url_k`
+- `height_k`
+- `width_k`
+- `url_3k`
+- `height_3k`
+- `width_3k`
 
 Additional fields (computed by `flickr2kml`) are:
 - `page_url`: link to the photo page on the Flickr website

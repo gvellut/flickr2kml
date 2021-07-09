@@ -222,7 +222,7 @@ def _get_page_of_geo_images_in_album(
             photoset_id=album_id,
             extras="license, date_upload, date_taken, owner_name, "
             "original_format, geo, tags, views, path_alias, url_sq, url_t"
-            "url_s, url_m, url_o, description",
+            "url_s, url_m, url_l, url_h, url_k, url_3k, url_o, description",
             page=page,
         )
     ).photoset
