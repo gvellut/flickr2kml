@@ -66,10 +66,11 @@ It is also possible to configure custom name and description formats by passing 
 
 The description template must return a HTML fragment (a simple text wthout any markup will do though). 
 
-The 2 predefined templates can be used as a starting point:
+The 2 predefined templates can be used as a starting point. I have also added a sample that uses the photo description field from the Flickr API:
 
 - [`gearth`](https://github.com/gvellut/flickr2kml/blob/master/flickr2kml/template_gearth.html)
 - [`mymaps`](https://github.com/gvellut/flickr2kml/blob/master/flickr2kml/template_mymaps.html)
+- [Sample](https://github.com/gvellut/flickr2kml/blob/master/flickr2kml/sample/description_alternate.html)
 
 #### Name
 
@@ -145,7 +146,7 @@ Additional fields (computed by `flickr2kml`) are:
 - `img_url`: same as `url_m`
 - `icon_url`: same as `url_sq`
 - `orientation`: either `landscape` or `portrait`
-- `datetaken_p`: Python datetime object obtained by parsing the `datetaken`field from the Flickr API. There is no timezone.
+- `datetaken_p`: Python datetime object obtained by parsing the `datetaken` field from the Flickr API. There is no timezone.
 
 ## API permission
 
