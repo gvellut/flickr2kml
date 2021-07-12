@@ -16,13 +16,14 @@ jobs:
               with:
                   python-version: "3.6"
 
-            - name: Install dependencies
-              run: |
-                  pip install -r requirements.txt -r requirements-dev.txt
-
             - name: Minimal test
               run: |
+                  pip install -e .
                   flickr2kml --help
+            
+            - name: Install dev dependencies
+              run: |
+                  pip install -r requirements-dev.txt
             
             - name: Publish to PyPi
               env:
